@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Reddit - Expand All Comments
-// @namespace    https://github.com/your-username/reddit-expander
+// @namespace    https://github.com/InvictusNavarchus/reddit-comment-expander
 // @version      0.1.0
 // @description  Adds a button to Reddit threads to automatically click all "X more replies" buttons, with a progress bar. Works on the latest Reddit UI.
-// @author       You
+// @author       Invictus Navarchus
 // @match        *://*.reddit.com/r/*/comments/*
 // @grant        GM_addStyle
 // @run-at       document-end
