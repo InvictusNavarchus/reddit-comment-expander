@@ -227,6 +227,31 @@
             }
         } else {
             console.log(getPrefix(), 'No new buttons found in this scan.');
+            // If no buttons found and no completion timeout is set, start one immediately
+            if (!completionTimeout && isRunning) {
+                console.log(getPrefix(), 'No buttons found. Setting immediate completion timer (1 second).');
+                completionTimeout = setTimeout(() => {
+                    console.log(getPrefix(), 'Completion timer fired. Final check...');
+                    // One last check to be sure
+                    const finalCheckButtons = document.querySelectorAll(selector);
+                    const finalButtonsToClick = Array.from(finalCheckButtons).filter(btn =>
+                        !btn.closest('[slot="loading"]') && !btn.dataset.redditExpanderProcessed
+                    );
+
+                    if (finalButtonsToClick.length === 0) {
+                        isRunning = false;
+                        showCompletion();
+                        if(observer) {
+                            observer.disconnect();
+                            console.log(getPrefix(), 'MutationObserver stopped.');
+                        }
+                    } else {
+                        console.log(getPrefix(), 'False alarm, more buttons appeared. Continuing scan.');
+                        completionTimeout = null;
+                        findAndClick();
+                    }
+                }, 1000); // Shorter timeout when no buttons found initially
+            }
         }
 
         // After every scan, set a timeout to check for completion. If no new buttons
@@ -270,11 +295,18 @@
 
         const triggerBtn = document.getElementById('re-trigger-btn');
         const progressContainer = document.getElementById('re-progress-container');
+        const progressBar = document.getElementById('re-progress-bar');
+        
         if (triggerBtn) {
             triggerBtn.style.display = 'none';
             triggerBtn.disabled = true;
         }
         if (progressContainer) progressContainer.style.display = 'block';
+        
+        // Reset progress bar appearance for fresh run
+        if (progressBar) {
+            progressBar.style.backgroundColor = '#4CAF50'; // Reset to green
+        }
 
         // Reset state for a fresh run
         clickedCount = 0;
@@ -282,6 +314,7 @@
         updateProgressBar();
         if (observer) observer.disconnect();
         if (completionTimeout) clearTimeout(completionTimeout);
+        completionTimeout = null;
 
         // Initial scan
         findAndClick();
