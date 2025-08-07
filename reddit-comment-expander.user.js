@@ -4,7 +4,7 @@
 // @version      0.1.0
 // @description  Adds a button to Reddit threads to automatically click all "X more replies" buttons, with a progress bar. Works on the latest Reddit UI.
 // @author       Invictus Navarchus
-// @match        *://*.reddit.com/r/*/comments/*
+// @match        https://*.reddit.com/r/*/comments/*
 // @grant        GM_addStyle
 // @run-at       document-end
 // ==/UserScript==
