@@ -185,6 +185,29 @@
     // --- CORE LOGIC ---
 
     /**
+     * Searches through shadow DOM trees to find elements matching a selector.
+     * @param {Element} root The root element to search from.
+     * @param {string} selector The CSS selector to match.
+     * @returns {Array} Array of matching elements.
+     */
+    function querySelectorAllDeep(root, selector) {
+        const results = [];
+        
+        // Search in the current document/element
+        results.push(...Array.from(root.querySelectorAll(selector)));
+        
+        // Search in shadow DOM trees
+        const elementsWithShadow = root.querySelectorAll('*');
+        for (const element of elementsWithShadow) {
+            if (element.shadowRoot) {
+                results.push(...querySelectorAllDeep(element.shadowRoot, selector));
+            }
+        }
+        
+        return results;
+    }
+
+    /**
      * Finds and clicks all unprocessed "more replies" buttons and collapsed comment buttons.
      */
     async function findAndClick() {
@@ -192,19 +215,29 @@
         
         // Selector for "more replies" buttons
         const moreRepliesSelector = 'faceplate-partial[src*="/svc/shreddit/more-comments/"] button';
-        const moreRepliesButtons = Array.from(document.querySelectorAll(moreRepliesSelector));
+        const moreRepliesButtons = querySelectorAllDeep(document, moreRepliesSelector);
 
         // Selector for collapsed comment expand buttons (details > summary button with plus icon)
-        const collapsedCommentSelector = 'details[role="article"] summary button svg[icon-name="join-outline"]';
-        const collapsedCommentIcons = Array.from(document.querySelectorAll(collapsedCommentSelector));
-        const collapsedCommentButtons = collapsedCommentIcons.map(icon => {
-            // Navigate up to find the button element
-            let element = icon.parentElement;
-            while (element && element.tagName !== 'BUTTON') {
-                element = element.parentElement;
+        // Search for shreddit-comment elements with collapsed attribute
+        const collapsedComments = querySelectorAllDeep(document, 'shreddit-comment[collapsed]');
+        const collapsedCommentButtons = [];
+        
+        // For each collapsed comment, look for the expand button in its shadow DOM
+        for (const comment of collapsedComments) {
+            if (comment.shadowRoot) {
+                const expandButtons = comment.shadowRoot.querySelectorAll('details[role="article"] summary button svg[icon-name="join-outline"]');
+                for (const icon of expandButtons) {
+                    // Navigate up to find the button element
+                    let element = icon.parentElement;
+                    while (element && element.tagName !== 'BUTTON') {
+                        element = element.parentElement;
+                    }
+                    if (element) {
+                        collapsedCommentButtons.push(element);
+                    }
+                }
             }
-            return element;
-        }).filter(btn => btn !== null);
+        }
 
         // Combine both types of buttons
         const allButtons = [...moreRepliesButtons, ...collapsedCommentButtons];
@@ -248,17 +281,26 @@
                 completionTimeout = setTimeout(() => {
                     console.log(getPrefix(), 'Completion timer fired. Final check...');
                     // One last check to be sure - check both types of buttons
-                    const finalMoreRepliesButtons = document.querySelectorAll(moreRepliesSelector);
-                    const finalCollapsedCommentIcons = document.querySelectorAll(collapsedCommentSelector);
-                    const finalCollapsedCommentButtons = Array.from(finalCollapsedCommentIcons).map(icon => {
-                        let element = icon.parentElement;
-                        while (element && element.tagName !== 'BUTTON') {
-                            element = element.parentElement;
-                        }
-                        return element;
-                    }).filter(btn => btn !== null);
+                    const finalMoreRepliesButtons = querySelectorAllDeep(document, moreRepliesSelector);
+                    const finalCollapsedComments = querySelectorAllDeep(document, 'shreddit-comment[collapsed]');
+                    const finalCollapsedCommentButtons = [];
                     
-                    const finalAllButtons = [...Array.from(finalMoreRepliesButtons), ...finalCollapsedCommentButtons];
+                    for (const comment of finalCollapsedComments) {
+                        if (comment.shadowRoot) {
+                            const expandButtons = comment.shadowRoot.querySelectorAll('details[role="article"] summary button svg[icon-name="join-outline"]');
+                            for (const icon of expandButtons) {
+                                let element = icon.parentElement;
+                                while (element && element.tagName !== 'BUTTON') {
+                                    element = element.parentElement;
+                                }
+                                if (element) {
+                                    finalCollapsedCommentButtons.push(element);
+                                }
+                            }
+                        }
+                    }
+                    
+                    const finalAllButtons = [...finalMoreRepliesButtons, ...finalCollapsedCommentButtons];
                     const finalButtonsToClick = finalAllButtons.filter(btn =>
                         !btn.closest('[slot="loading"]') && !btn.dataset.redditExpanderProcessed
                     );
@@ -286,17 +328,26 @@
             completionTimeout = setTimeout(() => {
                 console.log(getPrefix(), 'Completion timer fired. Final check...');
                 // One last check to be sure - check both types of buttons
-                const finalMoreRepliesButtons = document.querySelectorAll(moreRepliesSelector);
-                const finalCollapsedCommentIcons = document.querySelectorAll(collapsedCommentSelector);
-                const finalCollapsedCommentButtons = Array.from(finalCollapsedCommentIcons).map(icon => {
-                    let element = icon.parentElement;
-                    while (element && element.tagName !== 'BUTTON') {
-                        element = element.parentElement;
-                    }
-                    return element;
-                }).filter(btn => btn !== null);
+                const finalMoreRepliesButtons = querySelectorAllDeep(document, moreRepliesSelector);
+                const finalCollapsedComments = querySelectorAllDeep(document, 'shreddit-comment[collapsed]');
+                const finalCollapsedCommentButtons = [];
                 
-                const finalAllButtons = [...Array.from(finalMoreRepliesButtons), ...finalCollapsedCommentButtons];
+                for (const comment of finalCollapsedComments) {
+                    if (comment.shadowRoot) {
+                        const expandButtons = comment.shadowRoot.querySelectorAll('details[role="article"] summary button svg[icon-name="join-outline"]');
+                        for (const icon of expandButtons) {
+                            let element = icon.parentElement;
+                            while (element && element.tagName !== 'BUTTON') {
+                                element = element.parentElement;
+                            }
+                            if (element) {
+                                finalCollapsedCommentButtons.push(element);
+                            }
+                        }
+                    }
+                }
+                
+                const finalAllButtons = [...finalMoreRepliesButtons, ...finalCollapsedCommentButtons];
                 const finalButtonsToClick = finalAllButtons.filter(btn =>
                     !btn.closest('[slot="loading"]') && !btn.dataset.redditExpanderProcessed
                 );
@@ -367,8 +418,8 @@
                          node.nodeType === 1 && (
                              node.matches('faceplate-partial') || 
                              node.querySelector('faceplate-partial') ||
-                             node.matches('details[role="article"]') ||
-                             node.querySelector('details[role="article"]')
+                             node.matches('shreddit-comment') ||
+                             node.querySelector('shreddit-comment')
                          )
                      );
                      if (hasTargetNode) {
