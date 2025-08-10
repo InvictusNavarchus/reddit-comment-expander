@@ -1,6 +1,8 @@
 // ==UserScript==
 // @name         Reddit - Expand All Comments
 // @namespace    https://github.com/InvictusNavarchus/reddit-comment-expander
+// @updateURL    https://github.com/InvictusNavarchus/reddit-comment-expander/raw/refs/heads/master/reddit-comment-expander.user.js
+// @downloadURL  https://github.com/InvictusNavarchus/reddit-comment-expander/raw/refs/heads/master/reddit-comment-expander.user.js
 // @version      0.1.1
 // @description  Adds a button to Reddit threads to automatically click all "X more replies" buttons and expand collapsed comments, with a progress bar. Works on the latest Reddit UI.
 // @author       Invictus Navarchus
