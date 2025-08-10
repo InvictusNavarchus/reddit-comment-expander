@@ -2,7 +2,7 @@
 // @name         Reddit - Expand All Comments
 // @namespace    https://github.com/InvictusNavarchus/reddit-comment-expander
 // @version      0.1.1
-// @description  Adds a button to Reddit threads to automatically click all "X more replies" buttons, with a progress bar. Works on the latest Reddit UI.
+// @description  Adds a button to Reddit threads to automatically click all "X more replies" buttons and expand collapsed comments, with a progress bar. Works on the latest Reddit UI.
 // @author       Invictus Navarchus
 // @match        https://*.reddit.com/r/*/comments/*
 // @grant        GM_addStyle
@@ -185,24 +185,39 @@
     // --- CORE LOGIC ---
 
     /**
-     * Finds and clicks all unprocessed "more replies" buttons.
+     * Finds and clicks all unprocessed "more replies" buttons and collapsed comment buttons.
      */
     async function findAndClick() {
-        console.log(getPrefix(), 'Scanning for "more replies" buttons...');
-        // This selector targets the <faceplate-partial> element that loads more comments
-        // and then finds the button inside it.
-        const selector = 'faceplate-partial[src*="/svc/shreddit/more-comments/"] button';
-        const buttons = Array.from(document.querySelectorAll(selector));
+        console.log(getPrefix(), 'Scanning for expandable buttons...');
+        
+        // Selector for "more replies" buttons
+        const moreRepliesSelector = 'faceplate-partial[src*="/svc/shreddit/more-comments/"] button';
+        const moreRepliesButtons = Array.from(document.querySelectorAll(moreRepliesSelector));
+
+        // Selector for collapsed comment expand buttons (details > summary button with plus icon)
+        const collapsedCommentSelector = 'details[role="article"] summary button svg[icon-name="join-outline"]';
+        const collapsedCommentIcons = Array.from(document.querySelectorAll(collapsedCommentSelector));
+        const collapsedCommentButtons = collapsedCommentIcons.map(icon => {
+            // Navigate up to find the button element
+            let element = icon.parentElement;
+            while (element && element.tagName !== 'BUTTON') {
+                element = element.parentElement;
+            }
+            return element;
+        }).filter(btn => btn !== null);
+
+        // Combine both types of buttons
+        const allButtons = [...moreRepliesButtons, ...collapsedCommentButtons];
 
         // Filter for visible, unprocessed buttons. Reddit's HTML includes a hidden
         // button in the "loading" template, which we must exclude.
-        const buttonsToClick = buttons.filter(btn =>
+        const buttonsToClick = allButtons.filter(btn =>
             !btn.closest('[slot="loading"]') && // Exclude buttons in the loading template
             !btn.dataset.redditExpanderProcessed // Exclude buttons we've already processed
         );
 
         if (buttonsToClick.length > 0) {
-            console.log(getPrefix(), `Found ${buttonsToClick.length} new button(s).`);
+            console.log(getPrefix(), `Found ${buttonsToClick.length} new expandable button(s).`);
             // If we found buttons, cancel any pending completion timeout.
             if (completionTimeout) {
                 clearTimeout(completionTimeout);
@@ -226,15 +241,25 @@
                 await new Promise(resolve => setTimeout(resolve, 200));
             }
         } else {
-            console.log(getPrefix(), 'No new buttons found in this scan.');
+            console.log(getPrefix(), 'No new expandable buttons found in this scan.');
             // If no buttons found and no completion timeout is set, start one immediately
             if (!completionTimeout && isRunning) {
                 console.log(getPrefix(), 'No buttons found. Setting immediate completion timer (1 second).');
                 completionTimeout = setTimeout(() => {
                     console.log(getPrefix(), 'Completion timer fired. Final check...');
-                    // One last check to be sure
-                    const finalCheckButtons = document.querySelectorAll(selector);
-                    const finalButtonsToClick = Array.from(finalCheckButtons).filter(btn =>
+                    // One last check to be sure - check both types of buttons
+                    const finalMoreRepliesButtons = document.querySelectorAll(moreRepliesSelector);
+                    const finalCollapsedCommentIcons = document.querySelectorAll(collapsedCommentSelector);
+                    const finalCollapsedCommentButtons = Array.from(finalCollapsedCommentIcons).map(icon => {
+                        let element = icon.parentElement;
+                        while (element && element.tagName !== 'BUTTON') {
+                            element = element.parentElement;
+                        }
+                        return element;
+                    }).filter(btn => btn !== null);
+                    
+                    const finalAllButtons = [...Array.from(finalMoreRepliesButtons), ...finalCollapsedCommentButtons];
+                    const finalButtonsToClick = finalAllButtons.filter(btn =>
                         !btn.closest('[slot="loading"]') && !btn.dataset.redditExpanderProcessed
                     );
 
@@ -260,9 +285,19 @@
             console.log(getPrefix(), 'Setting completion timer (3 seconds).');
             completionTimeout = setTimeout(() => {
                 console.log(getPrefix(), 'Completion timer fired. Final check...');
-                // One last check to be sure
-                const finalCheckButtons = document.querySelectorAll(selector);
-                const finalButtonsToClick = Array.from(finalCheckButtons).filter(btn =>
+                // One last check to be sure - check both types of buttons
+                const finalMoreRepliesButtons = document.querySelectorAll(moreRepliesSelector);
+                const finalCollapsedCommentIcons = document.querySelectorAll(collapsedCommentSelector);
+                const finalCollapsedCommentButtons = Array.from(finalCollapsedCommentIcons).map(icon => {
+                    let element = icon.parentElement;
+                    while (element && element.tagName !== 'BUTTON') {
+                        element = element.parentElement;
+                    }
+                    return element;
+                }).filter(btn => btn !== null);
+                
+                const finalAllButtons = [...Array.from(finalMoreRepliesButtons), ...finalCollapsedCommentButtons];
+                const finalButtonsToClick = finalAllButtons.filter(btn =>
                     !btn.closest('[slot="loading"]') && !btn.dataset.redditExpanderProcessed
                 );
 
@@ -327,9 +362,14 @@
 
             for (const mutation of mutations) {
                  if (mutation.addedNodes.length > 0) {
-                     // Efficiently check if any added nodes might contain our target button
+                     // Efficiently check if any added nodes might contain our target buttons
                      const hasTargetNode = Array.from(mutation.addedNodes).some(node =>
-                         node.nodeType === 1 && (node.matches('faceplate-partial') || node.querySelector('faceplate-partial'))
+                         node.nodeType === 1 && (
+                             node.matches('faceplate-partial') || 
+                             node.querySelector('faceplate-partial') ||
+                             node.matches('details[role="article"]') ||
+                             node.querySelector('details[role="article"]')
+                         )
                      );
                      if (hasTargetNode) {
                         console.log(getPrefix(), 'DOM change detected, queueing a re-scan.');
